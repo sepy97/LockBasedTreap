@@ -68,7 +68,7 @@ pair<treap, treap> split (treap root, int key, treap* dupl) //операция s
 	}
 }
 
-treap merge(treap left, treap right) //операция merge - сливает два дерева
+treap merge (treap left, treap right) //операция merge - сливает два дерева
 {
 	if (left == nullptr || right == nullptr) return right == nullptr ? left : right;
 	
@@ -100,6 +100,49 @@ treap merge(treap left, treap right) //операция merge - сливает �
 		left->m.unlock ();
 		right->m.unlock ();
 		return right;
+	}
+}
+
+void erase (treap& t, int key)
+{
+	if (t->key == key)
+	{
+		t = merge (t->left, t->right);
+	}
+	else
+	{
+		if (key < t->key)
+		{
+			erase (t->left, key);
+		}
+		else
+		{
+			erase (t->right, key);
+		}
+	}
+}
+
+void insert (treap& t, treap toInsert)
+{
+	if (t == nullptr) t = toInsert;
+	else if (toInsert->priority > t->priority)
+	{
+		treap dupl;
+		auto tmp = split (t, toInsert->key, &dupl);
+		toInsert->left = tmp.first;
+		toInsert->right = tmp.second;
+		t = toInsert;
+	}
+	else
+	{
+		if (toInsert->key < t->key)
+		{
+			insert (t->left, toInsert);
+		}
+		else
+		{
+			insert (t->right, toInsert);
+		}
 	}
 }
 
@@ -156,6 +199,24 @@ int main ()
 	}
 	
 	dumpTreap (result);
+	
+	printf ("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n");
+	
+	treap a0 = new node();
+	auto a1 = new node (13, 3);
+	auto a2 = new node (9, 7);
+	auto a3 = new node (14, 4);
+	auto a4 = new node (11, 8);
+	insert (a0, a1);
+	insert (a0, a2);
+	insert (a0, a3);
+	insert (a0, a4);
+	dumpTreap (a0);
+	
+	printf ("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n");
+	
+	erase (a0, 11);
+	dumpTreap (a0);
 	
 	return 0;
 }
