@@ -3,10 +3,33 @@
 #include <utility>
 #include <thread>
 #include <mutex>
+#include <queue>
+#include <algorithm>
+#include <x86intrin.h>
 
+#define INIT_PUSH 100
 #define MAXTHREADNUM 100
+#define MAX_VOLUME 100000
 
 using namespace std;
+
+queue <int> testedValues;
+
+class FastRandom {
+private:
+	unsigned long long rnd;
+public:
+	FastRandom(unsigned long long seed) { //time + threadnum
+		rnd = seed;
+	}
+	unsigned long long rand() {
+		rnd ^= rnd << 21;
+		rnd ^= rnd >> 35;
+		rnd ^= rnd << 4;
+		return rnd;
+	}
+};
+
 struct node
 {
 	std::recursive_mutex m;
@@ -105,25 +128,31 @@ treap merge (treap left, treap right) //операция merge - сливает 
 
 void erase (treap& t, int key)
 {
-	if (t->key == key)
+	//проверка на NULL
+	if (t != NULL)// return;
 	{
-		t = merge (t->left, t->right);
-	}
-	else
-	{
-		if (key < t->key)
+		if (t->key == key)
 		{
-			erase (t->left, key);
+			t = merge (t->left, t->right);
 		}
 		else
 		{
-			erase (t->right, key);
+			if (key < t->key)
+			{
+				erase (t->left, key);
+			}
+			else
+			{
+				erase (t->right, key);
+			}
 		}
 	}
 }
 
 void insert (treap& t, treap toInsert)
 {
+	//проверить вставку по имеющимся ключу
+	
 	if (t == nullptr) t = toInsert;
 	else if (toInsert->priority > t->priority)
 	{
@@ -146,77 +175,84 @@ void insert (treap& t, treap toInsert)
 	}
 }
 
-void testMerge (treap result, treap toMerge)
+treap toTest;
+
+void testMerge (const int volume, int threadNum)
 {
-	result = merge (result, toMerge);
+	FastRandom* ran = new FastRandom (time(NULL) + threadNum);
+	for (int i = 0; i < volume; i++)
+	{
+		int insOrDel = ran->rand()%2;
+		if (insOrDel)
+		{
+			int toInsert = testedValues.front ();
+			testedValues.pop ();
+			auto toAdd = new node (toInsert, ran->rand ()%volume);
+			insert (toTest, toAdd);
+		}
+		else
+		{
+			int data = ran->rand ()%volume;
+			
+			erase (toTest, data);
+			testedValues.push (data);
+		}
+	}
+	
 }
 
-int main ()
+int main (int argc, char** argv)
 {
-	srand (time (NULL));
-	
-	auto t1 = new node (13, 3);
-	auto t2 = new node (9, 7);
-	auto t3 = new node (14, 4);
-	auto t4 = new node (13, 8);
-	
-	t2 = merge (t1, t2);
-	t4 = merge (t3, t4);
-	
-	dumpTreap (t4);
-	printf ("*****************************\n");
-	
-	dumpTreap (t2);
-	printf ("*****************************\n");
-	
-	auto t5 = merge (t2, t4);
-	
-	dumpTreap (t5);
-	printf ("*****************************\n");
-	
-	
-	treap t [MAXTHREADNUM];
-	for (int i = 0; i < MAXTHREADNUM; i++)
+	int maxThreads = 2;
+	/*if (argc > 1)
 	{
-		t[i] = new node (i, rand()%100);
+		maxThreads = atoi(argv[1]);
+	}
+	else
+	{
+		printf ("no arguments :( \n");
+		return 0;
+	}*/
+	
+	toTest = new node ();
+	FastRandom* ran = new FastRandom (time(NULL));
+	
+	while (testedValues.size () < MAX_VOLUME + INIT_PUSH )
+	{
+		int toInsert = ran->rand () % ((MAX_VOLUME+ INIT_PUSH)*10);
+		testedValues.push (toInsert);
 	}
 	
-	for (int i = 0; i < MAXTHREADNUM; i++)
+	for (int i = 0; i < INIT_PUSH; i++)
 	{
-		dumpTreap (t[i]);
-		printf ("@@@@@@@@@@@@@@@@@@@@@@\n");
-	}
-	std::thread thr [MAXTHREADNUM];
-	auto result = new node (101, 101);
-	for (int i = 0; i < MAXTHREADNUM; i++)
-	{
-		thr[i] = std::thread (testMerge, result, t[i]);
+		auto toAdd = new node (testedValues.front (), ran->rand()%(INIT_PUSH));
+		testedValues.pop ();
+		insert (toTest, toAdd);
+		
+		
 	}
 	
-	for (int i = 0; i < MAXTHREADNUM; i++)
+	
+	//printf ("\n %d \n", testedValues.size ());
+	
+	std::thread thr[maxThreads];
+	
+	uint64_t tick = __rdtsc ()/100000;
+	
+	for (int i = 0; i < maxThreads; i++)
+	{
+		//toTest.push (i);
+		thr[i] = std::thread (testMerge, MAX_VOLUME/maxThreads, i); //testPush, &toTest, i);
+	}
+	
+	for (int i = 0; i < maxThreads; i++)
 	{
 		thr[i].join ();
 	}
 	
-	dumpTreap (result);
+	uint64_t tick2 = __rdtsc ()/100000;
+	printf ("%llu\n", tick2 - tick);
 	
-	printf ("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n");
-	
-	treap a0 = new node();
-	auto a1 = new node (13, 3);
-	auto a2 = new node (9, 7);
-	auto a3 = new node (14, 4);
-	auto a4 = new node (11, 8);
-	insert (a0, a1);
-	insert (a0, a2);
-	insert (a0, a3);
-	insert (a0, a4);
-	dumpTreap (a0);
-	
-	printf ("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n");
-	
-	erase (a0, 11);
-	dumpTreap (a0);
 	
 	return 0;
 }
