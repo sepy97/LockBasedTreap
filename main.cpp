@@ -13,8 +13,6 @@
 
 using namespace std;
 
-queue <int> testedValues;
-
 class FastRandom {
 private:
 	unsigned long long rnd;
@@ -120,8 +118,8 @@ treap merge (treap left, treap right) //операция merge - сливает 
 		right->left = merge (left, right->left);
 		//dump (right);
 		
-		left->m.unlock ();
 		right->m.unlock ();
+		left->m.unlock ();
 		return right;
 	}
 }
@@ -179,15 +177,17 @@ treap toTest;
 
 void testMerge (const int volume, int threadNum)
 {
+	//queue <int> testedValues;
+	
 	FastRandom* ran = new FastRandom (time(NULL) + threadNum);
 	for (int i = 0; i < volume; i++)
 	{
 		int insOrDel = ran->rand()%2;
 		if (insOrDel)
 		{
-			int toInsert = testedValues.front ();
-			testedValues.pop ();
-			auto toAdd = new node (toInsert, ran->rand ()%volume);
+			/*int toInsert = ran->rand()%volume; // testedValues.front ();
+			testedValues.pop ();*/
+			auto toAdd = new node (ran->rand()%volume, ran->rand ()%volume);
 			insert (toTest, toAdd);
 		}
 		else
@@ -195,7 +195,7 @@ void testMerge (const int volume, int threadNum)
 			int data = ran->rand ()%volume;
 			
 			erase (toTest, data);
-			testedValues.push (data);
+			//testedValues.push (data);
 		}
 	}
 	
@@ -217,18 +217,22 @@ int main (int argc, char** argv)
 	toTest = new node ();
 	FastRandom* ran = new FastRandom (time(NULL));
 	
+	/*
 	while (testedValues.size () < MAX_VOLUME + INIT_PUSH )
 	{
 		int toInsert = ran->rand () % ((MAX_VOLUME+ INIT_PUSH)*10);
 		testedValues.push (toInsert);
 	}
+	*/
 	
 	for (int i = 0; i < INIT_PUSH; i++)
 	{
-		auto toAdd = new node (testedValues.front (), ran->rand()%(INIT_PUSH));
+		/*auto toAdd = new node (testedValues.front (), ran->rand()%(INIT_PUSH));
 		testedValues.pop ();
 		insert (toTest, toAdd);
-		
+		*/
+		auto toAdd = new node (ran->rand()%INIT_PUSH, ran->rand ()%INIT_PUSH);
+		insert (toTest, toAdd);
 		
 	}
 	
