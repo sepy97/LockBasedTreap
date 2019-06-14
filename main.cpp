@@ -30,17 +30,27 @@ public:
 
 struct node
 {
-	std::recursive_mutex m;
-	node *left, *right;
+	//std::recursive_mutex m;
+	node *left = nullptr, *right = nullptr;
 	int key, priority;
-	node () : key (0), priority (0), left (nullptr), right (nullptr) { }
-	node (int key, int priority) : key (key), priority (priority), left (nullptr), right (nullptr) { }
+	node (int key = 0, int priority = 0) : key (key), priority (priority) { }
 	
 };
 typedef node* treap;
 
+#if DUMB_ME
+struct dumb {
+	void lock() {}
+	void unlock() {}
+}
+#else
+std::recursive_mutex
+#endif
+m;
+
 void dumpTreap (treap out, int spacingCounter = 0)
 {
+	std::lock_guard<std::recursive_mutex> lg(m);
 	if (out)
 	{
 		dumpTreap (out->right, spacingCounter + 1);
@@ -54,36 +64,37 @@ pair<treap, treap> split (treap root, int key, treap* dupl) //операция s
 // - кидает эту вершину в dupl
 {
 	if (root == nullptr) return make_pair (nullptr, nullptr);
+	//std::lock_guard<std::recursive_mutex> lg(m);
 	
 	if (root->key < key)
 	{
 		(*dupl) = nullptr;
-		root->m.lock();
+		///*root->*/m.lock();
 		
 		pair<treap, treap> splitted = split (root->right, key, dupl);
 		root->right = splitted.first;
 		
-		root->m.unlock();
+		///*root->*/m.unlock();
 		return make_pair (root, splitted.second);
 	}
 	else if (root->key > key)
 	{
 		(*dupl) = nullptr;
-		root->m.lock();
+		///*root->*/m.lock();
 		
 		pair<treap, treap> splitted = split (root->left, key, dupl);
 		root->left = splitted.second;
 		
-		root->m.unlock();
+		///*root->*/m.unlock();
 		return make_pair (splitted.first, root);
 	}
 	else
 	{
-		root->m.lock();
+		///*root->*/m.lock();
 		
 		(*dupl) = root;
 		
-		root->m.unlock();
+		///*root->*/m.unlock();
 		return make_pair (root->left, root->right);
 		
 	}
@@ -92,16 +103,14 @@ pair<treap, treap> split (treap root, int key, treap* dupl) //операция s
 treap merge (treap left, treap right) //операция merge - сливает два дерева
 {
 	if (left == nullptr || right == nullptr) return right == nullptr ? left : right;
+	//std::lock_guard<std::recursive_mutex> lg(m);
 	
-	left->m.lock ();
-	right->m.lock ();
+	///*left->*/m.lock ();
+	//right->m.lock ();
 	
 	if (left->key > right->key)
 	{
-		treap tmp = right;
-		right = left;
-		left = tmp;
-		
+		std::swap(left,right);
 	}
 	
 	if (left->priority > right->priority)
@@ -109,8 +118,8 @@ treap merge (treap left, treap right) //операция merge - сливает 
 		left->right = merge (left->right, right);
 		//dump (left);
 		
-		left->m.unlock ();
-		right->m.unlock ();
+		///*left->*/m.unlock ();
+		//right->m.unlock ();
 		return left;
 	}
 	else
@@ -118,8 +127,8 @@ treap merge (treap left, treap right) //операция merge - сливает 
 		right->left = merge (left, right->left);
 		//dump (right);
 		
-		right->m.unlock ();
-		left->m.unlock ();
+		//right->m.unlock ();
+		///*left->*/m.unlock ();
 		return right;
 	}
 }
@@ -127,6 +136,7 @@ treap merge (treap left, treap right) //операция merge - сливает 
 void erase (treap& t, int key)
 {
 	//проверка на NULL
+	std::lock_guard<std::recursive_mutex> lg(m);
 	if (t != NULL)// return;
 	{
 		if (t->key == key)
@@ -149,6 +159,7 @@ void erase (treap& t, int key)
 
 void insert (treap& t, treap toInsert)
 {
+	std::lock_guard<std::recursive_mutex> lg(m);
 	//проверить вставку по имеющимся ключу
 	
 	if (t == nullptr) t = toInsert;
@@ -203,8 +214,8 @@ void testMerge (const int volume, int threadNum)
 
 int main (int argc, char** argv)
 {
-	int maxThreads = 2;
-	/*if (argc > 1)
+	int maxThreads = 0;
+	if (argc > 1)
 	{
 		maxThreads = atoi(argv[1]);
 	}
@@ -212,7 +223,7 @@ int main (int argc, char** argv)
 	{
 		printf ("no arguments :( \n");
 		return 0;
-	}*/
+	}
 	
 	toTest = new node ();
 	FastRandom* ran = new FastRandom (time(NULL));
